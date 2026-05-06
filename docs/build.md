@@ -104,6 +104,7 @@ pnpm run typecheck
 pnpm run test
 pnpm run test:e2e:anvil
 pnpm run deploy:token -- --config ./config/tokenconfig.json
+pnpm run verify:token -- --config ./config/tokenconfig.json
 ```
 
 建议 `package.json` scripts:
@@ -130,7 +131,7 @@ pnpm run deploy:token -- --config ./config/tokenconfig.json
 6. 根据 `isUpgradeable` 选择部署普通合约或 UUPS proxy。
 7. 等待 `confirmations`。
 8. 写入 `deployments/<chainId>/...json`。
-9. 当前解析 `verify.enabled`，但区块浏览器验证尚未接入；开启时部署记录仍写 `verified: false` 并输出提示。
+9. 当前部署命令只解析 `verify.enabled`，不自动提交 explorer 验证；部署后用 `verify:token` 提交验证。
 
 ## 部署流程
 
@@ -140,6 +141,12 @@ pnpm run deploy:token -- --config ./config/tokenconfig.json
 pnpm run compile
 pnpm run test
 pnpm run deploy:token -- --config ./config/tokenconfig.json
+```
+
+`deploy:token` 默认会查找同一 `chainId`、同一 deployer、同一 token 参数且链上仍有代码的部署记录；找到时会复用并跳过重复部署。确实需要重新部署同参数合约时加 `--force`:
+
+```bash
+pnpm run deploy:token -- --config ./config/tokenconfig.json --force
 ```
 
 可升级 Token:
@@ -175,25 +182,36 @@ mint(address to, uint256 amount)
 
 ## 合约验证
 
-Hardhat 3 官方验证插件在 `@nomicfoundation/hardhat-verify@3.x`。当前部署脚本只解析验证配置，不主动提交 explorer 验证；实际实现时可以先支持 Etherscan 风格 explorer，再扩展 Blockscout。
+Hardhat 3 官方验证插件在 `@nomicfoundation/hardhat-verify@3.x`。本项目的部署脚本不主动提交 explorer 验证；部署后使用独立的 `verify:token` 脚本提交 Etherscan V2 Standard JSON Input 验证。
 
 配置示例:
 
 ```json
 {
   "verify": {
-    "enabled": true,
-    "explorer": "etherscan",
-    "apiKeyEnv": "ETHERSCAN_API_KEY"
+    "enabled": true
   }
 }
 ```
 
-后续接入验证时的要求:
+部署后提交验证:
+
+```bash
+pnpm run verify:token -- --config ./config/tokenconfig.json
+```
+
+脚本默认读取 `ETHERSCAN_API_KEY`，并自动寻找 `deployments/<chainId>/<symbol>-*.json` 中最新的部署记录。也可以显式指定记录:
+
+```bash
+pnpm run verify:token -- --config ./config/tokenconfig.json --deployment ./deployments/97/USDT-S-2026-05-06T08-39-26-304Z.json
+```
+
+验证脚本行为:
 
 - 普通合约验证 constructor args。
 - UUPS implementation 验证 implementation 合约。
-- Proxy 验证按目标 explorer 能力处理；至少部署记录要写清 implementation 和 proxy。
+- Proxy 验证 `ConfigurableERC1967Proxy` constructor args。
+- 验证成功后把部署记录的 `verified` 更新为 `true`。
 
 ## 测试覆盖
 

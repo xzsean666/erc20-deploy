@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>USDT-S Faucet</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script defer src="./app.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow" id="pageEyebrow">BSC Testnet</p>
+          <h1>USDT-S Faucet</h1>
+        </div>
+        <div class="network-pill" id="networkPill">
+          <span class="dot"></span>
+          <span id="networkText">未连接</span>
+        </div>
+      </header>
+
+      <main class="faucet-panel">
+        <section class="token-summary" aria-label="Token summary">
+          <div>
+            <span class="label">Token</span>
+            <strong id="tokenSymbol">USDT-S</strong>
+          </div>
+          <div>
+            <span class="label">Address</span>
+            <a id="tokenLink" target="_blank" rel="noreferrer">0xBc5C...34f4</a>
+          </div>
+          <div>
+            <span class="label">Wallet</span>
+            <strong id="walletText">未连接</strong>
+          </div>
+          <div>
+            <span class="label">Balance</span>
+            <strong id="balanceText">--</strong>
+          </div>
+        </section>
+
+        <form id="faucetForm" class="faucet-form">
+          <label for="tokenSelect">测试网络 Token</label>
+          <select id="tokenSelect" name="token"></select>
+
+          <label for="recipientInput">接收地址</label>
+          <input
+            id="recipientInput"
+            name="recipient"
+            autocomplete="off"
+            inputmode="text"
+            placeholder="0x..."
+          />
+
+          <label for="amountInput">数量</label>
+          <div class="amount-row">
+            <input id="amountInput" name="amount" value="100" inputmode="decimal" />
+            <span id="amountSymbol">USDT-S</span>
+          </div>
+
+          <div class="actions">
+            <button id="connectBtn" type="button" class="secondary">连接钱包</button>
+            <button id="switchBtn" type="button" class="secondary">切换网络</button>
+            <button id="addTokenBtn" type="button" class="secondary">添加 Token</button>
+            <button id="mintBtn" type="submit" class="primary">Mint</button>
+          </div>
+        </form>
+
+        <div class="status-line" id="statusLine" role="status">就绪</div>
+        <a class="tx-link" id="txLink" target="_blank" rel="noreferrer" hidden>查看交易</a>
+      </main>
+    </div>
+  </body>
+</html>

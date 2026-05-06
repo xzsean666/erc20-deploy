@@ -1,0 +1,14 @@
+{
+  "rpc": "https://polygon-amoy.drpc.org",
+  "chainId": 80002,
+  "deployerPrivateKeyEnv": "DEPLOYER_PRIVATE_KEY",
+  "tokenName": "USDT SEAN TEST",
+  "symbol": "USDT-S",
+  "decimals": 18,
+  "initialSupply": "1000000",
+  "isTest": true,
+  "isUpgradeable": false,
+  "verify": {
+    "enabled": true
+  }
+}

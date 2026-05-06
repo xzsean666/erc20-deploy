@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-05-06T08:39:26.304Z",
+  "chainId": 97,
+  "rpcHost": "data-seed-prebsc-1-s1.bnbchain.org:8545",
+  "deployer": "0x285bd8C75C7647b7da1C1154776633804d4ff5eC",
+  "tokenName": "USDT SEAN TEST",
+  "symbol": "USDT-S",
+  "decimals": 18,
+  "initialSupply": "1000000",
+  "initialSupplyBaseUnits": "1000000000000000000000000",
+  "initialRecipient": "0x285bd8C75C7647b7da1C1154776633804d4ff5eC",
+  "owner": "0x285bd8C75C7647b7da1C1154776633804d4ff5eC",
+  "isTest": true,
+  "isUpgradeable": false,
+  "tokenAddress": "0xBc5C09c67542fC33fB38fC164c1ACE94423e34f4",
+  "transactionHash": "0x481828749565455798236e52f862766b6c1f9b1ebe10fb219fadb6abb3fa8d0d",
+  "blockNumber": 105810183,
+  "confirmations": 2,
+  "verified": true,
+  "metadata": {}
+}

@@ -24,6 +24,7 @@ import {
 
 type CliOptions = {
   configPath: string;
+  force: boolean;
 };
 
 type DeploymentOverrides = {
@@ -78,6 +79,11 @@ type DeploymentRecord = {
   metadata: TokenConfig["metadata"];
 };
 
+type ResolvedTokenConfig = TokenConfig & {
+  initialRecipient: string;
+  owner: string;
+};
+
 const ARTIFACT_CANDIDATES: Record<string, Array<string>> = {
   ConfigurableERC20: [
     "artifacts/contracts/ConfigurableERC20.sol/ConfigurableERC20.json",
@@ -107,47 +113,73 @@ async function main(): Promise<void> {
   const privateKey = readPrivateKey(config.deployerPrivateKeyEnv);
   const wallet = new NonceManager(new Wallet(privateKey, provider));
   const deployer = getAddress(await wallet.getAddress());
+  const resolvedConfig = withDeploymentAddressDefaults(config, deployer);
   const initialSupplyBaseUnits = parseUnits(
-    config.initialSupply,
-    config.decimals
+    resolvedConfig.initialSupply,
+    resolvedConfig.decimals
   );
-  const overrides = buildDeploymentOverrides(config.gas);
+  const overrides = buildDeploymentOverrides(resolvedConfig.gas);
 
   console.log(
-    `Deploying ${config.symbol} to chain ${config.chainId} via ${rpcHost}`
+    `Deploying ${resolvedConfig.symbol} to chain ${resolvedConfig.chainId} via ${rpcHost}`
   );
   console.log(`Deployer: ${deployer}`);
 
-  const deployment = config.isUpgradeable
+  if (!options.force) {
+    const existingDeployment = await findMatchingDeploymentRecord(
+      resolvedConfig,
+      deployer,
+      initialSupplyBaseUnits,
+      provider
+    );
+
+    if (existingDeployment !== undefined) {
+      console.log(
+        `Found existing matching deployment: ${existingDeployment.record.tokenAddress}`
+      );
+      if (existingDeployment.record.implementationAddress !== undefined) {
+        console.log(
+          `Implementation address: ${existingDeployment.record.implementationAddress}`
+        );
+      }
+      console.log(`Deployment record: ${existingDeployment.path}`);
+      console.log("Use --force to deploy a new contract with the same config.");
+      return;
+    }
+  } else {
+    console.log("Force redeploy enabled; ignoring matching deployment records.");
+  }
+
+  const deployment = resolvedConfig.isUpgradeable
     ? await deployUpgradeableToken(
-        config,
+        resolvedConfig,
         wallet,
         initialSupplyBaseUnits,
         overrides
       )
     : await deployDirectToken(
-        config,
+        resolvedConfig,
         wallet,
         initialSupplyBaseUnits,
         overrides
       );
 
-  const verified = await maybeVerify(config);
+  const verified = await maybeVerify(resolvedConfig);
   const timestamp = new Date().toISOString();
   const record: DeploymentRecord = {
     timestamp,
-    chainId: config.chainId,
+    chainId: resolvedConfig.chainId,
     rpcHost,
     deployer,
-    tokenName: config.tokenName,
-    symbol: config.symbol,
-    decimals: config.decimals,
-    initialSupply: config.initialSupply,
+    tokenName: resolvedConfig.tokenName,
+    symbol: resolvedConfig.symbol,
+    decimals: resolvedConfig.decimals,
+    initialSupply: resolvedConfig.initialSupply,
     initialSupplyBaseUnits: initialSupplyBaseUnits.toString(),
-    initialRecipient: config.initialRecipient,
-    owner: config.owner,
-    isTest: config.isTest,
-    isUpgradeable: config.isUpgradeable,
+    initialRecipient: resolvedConfig.initialRecipient,
+    owner: resolvedConfig.owner,
+    isTest: resolvedConfig.isTest,
+    isUpgradeable: resolvedConfig.isUpgradeable,
     implementationAddress: deployment.implementationAddress,
     implementationTransactionHash: deployment.implementationTransactionHash,
     implementationBlockNumber: deployment.implementationBlockNumber,
@@ -155,9 +187,9 @@ async function main(): Promise<void> {
     tokenAddress: deployment.address,
     transactionHash: deployment.transactionHash,
     blockNumber: deployment.blockNumber,
-    confirmations: config.confirmations,
+    confirmations: resolvedConfig.confirmations,
     verified,
-    metadata: config.metadata,
+    metadata: resolvedConfig.metadata,
   };
 
   const outputPath = await writeDeploymentRecord(record);
@@ -171,6 +203,7 @@ async function main(): Promise<void> {
 
 function parseCliArgs(argv: Array<string>): CliOptions {
   let configPath: string | undefined;
+  let force = false;
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -182,6 +215,11 @@ function parseCliArgs(argv: Array<string>): CliOptions {
     if (arg === "--help" || arg === "-h") {
       printUsage();
       process.exit(0);
+    }
+
+    if (arg === "--force") {
+      force = true;
+      continue;
     }
 
     if (arg === "--config") {
@@ -210,11 +248,13 @@ function parseCliArgs(argv: Array<string>): CliOptions {
     throw new Error("Missing required --config <path> argument");
   }
 
-  return { configPath };
+  return { configPath, force };
 }
 
 function printUsage(): void {
-  console.log("Usage: pnpm run deploy:token -- --config ./config/tokenconfig.json");
+  console.log(
+    "Usage: pnpm run deploy:token -- --config ./config/tokenconfig.json [--force]"
+  );
 }
 
 async function assertChainId(
@@ -261,8 +301,84 @@ function buildDeploymentOverrides(
   return overrides;
 }
 
-async function deployDirectToken(
+function withDeploymentAddressDefaults(
   config: TokenConfig,
+  deployer: string
+): ResolvedTokenConfig {
+  return {
+    ...config,
+    initialRecipient: config.initialRecipient ?? deployer,
+    owner: config.owner ?? deployer,
+  };
+}
+
+async function findMatchingDeploymentRecord(
+  config: ResolvedTokenConfig,
+  deployer: string,
+  initialSupplyBaseUnits: bigint,
+  provider: JsonRpcProvider
+): Promise<{ path: string; record: DeploymentRecord } | undefined> {
+  const deploymentDir = resolve("deployments", String(config.chainId));
+  let entries;
+
+  try {
+    entries = await readdir(deploymentDir, { withFileTypes: true });
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      return undefined;
+    }
+    throw error;
+  }
+
+  const matches: Array<{ path: string; record: DeploymentRecord }> = [];
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith(".json")) {
+      continue;
+    }
+
+    const deploymentPath = join(deploymentDir, entry.name);
+    const record = await tryReadDeploymentRecord(deploymentPath);
+    if (
+      record !== undefined &&
+      deploymentRecordMatches(record, config, deployer, initialSupplyBaseUnits)
+    ) {
+      const code = await provider.getCode(record.tokenAddress);
+      if (code !== "0x") {
+        matches.push({ path: deploymentPath, record });
+      }
+    }
+  }
+
+  matches.sort((left, right) =>
+    right.record.timestamp.localeCompare(left.record.timestamp)
+  );
+
+  return matches[0];
+}
+
+function deploymentRecordMatches(
+  record: DeploymentRecord,
+  config: ResolvedTokenConfig,
+  deployer: string,
+  initialSupplyBaseUnits: bigint
+): boolean {
+  return (
+    record.chainId === config.chainId &&
+    record.deployer === deployer &&
+    record.tokenName === config.tokenName &&
+    record.symbol === config.symbol &&
+    record.decimals === config.decimals &&
+    record.initialSupply === config.initialSupply &&
+    record.initialSupplyBaseUnits === initialSupplyBaseUnits.toString() &&
+    record.initialRecipient === config.initialRecipient &&
+    record.owner === config.owner &&
+    record.isTest === config.isTest &&
+    record.isUpgradeable === config.isUpgradeable
+  );
+}
+
+async function deployDirectToken(
+  config: ResolvedTokenConfig,
   signer: Signer,
   initialSupplyBaseUnits: bigint,
   overrides: DeploymentOverrides
@@ -288,7 +404,7 @@ async function deployDirectToken(
 }
 
 async function deployUpgradeableToken(
-  config: TokenConfig,
+  config: ResolvedTokenConfig,
   signer: Signer,
   initialSupplyBaseUnits: bigint,
   overrides: DeploymentOverrides
@@ -618,6 +734,126 @@ async function readJsonFile(filePath: string): Promise<unknown> {
   }
 }
 
+async function tryReadDeploymentRecord(
+  filePath: string
+): Promise<DeploymentRecord | undefined> {
+  const parsed = await readJsonFile(filePath);
+  if (!isRecord(parsed)) {
+    return undefined;
+  }
+
+  const timestamp = getStringField(parsed, "timestamp");
+  const rpcHost = getStringField(parsed, "rpcHost");
+  const deployer = getStringField(parsed, "deployer");
+  const tokenName = getStringField(parsed, "tokenName");
+  const symbol = getStringField(parsed, "symbol");
+  const initialSupply = getStringField(parsed, "initialSupply");
+  const initialSupplyBaseUnits = getStringField(
+    parsed,
+    "initialSupplyBaseUnits"
+  );
+  const initialRecipient = getStringField(parsed, "initialRecipient");
+  const owner = getStringField(parsed, "owner");
+  const tokenAddress = getStringField(parsed, "tokenAddress");
+  const transactionHash = getStringField(parsed, "transactionHash");
+  const chainId = getNumberField(parsed, "chainId");
+  const decimals = getNumberField(parsed, "decimals");
+  const blockNumber = getNumberField(parsed, "blockNumber");
+  const confirmations = getNumberField(parsed, "confirmations");
+  const isTest = getBooleanField(parsed, "isTest");
+  const isUpgradeable = getBooleanField(parsed, "isUpgradeable");
+  const verified = getBooleanField(parsed, "verified");
+
+  if (
+    timestamp === undefined ||
+    rpcHost === undefined ||
+    deployer === undefined ||
+    tokenName === undefined ||
+    symbol === undefined ||
+    initialSupply === undefined ||
+    initialSupplyBaseUnits === undefined ||
+    initialRecipient === undefined ||
+    owner === undefined ||
+    tokenAddress === undefined ||
+    transactionHash === undefined ||
+    chainId === undefined ||
+    decimals === undefined ||
+    blockNumber === undefined ||
+    confirmations === undefined ||
+    isTest === undefined ||
+    isUpgradeable === undefined ||
+    verified === undefined
+  ) {
+    return undefined;
+  }
+
+  try {
+    return {
+      timestamp,
+      chainId,
+      rpcHost,
+      deployer: getAddress(deployer),
+      tokenName,
+      symbol,
+      decimals,
+      initialSupply,
+      initialSupplyBaseUnits,
+      initialRecipient: getAddress(initialRecipient),
+      owner: getAddress(owner),
+      isTest,
+      isUpgradeable,
+      implementationAddress:
+        typeof parsed.implementationAddress === "string"
+          ? getAddress(parsed.implementationAddress)
+          : undefined,
+      implementationTransactionHash:
+        typeof parsed.implementationTransactionHash === "string"
+          ? parsed.implementationTransactionHash
+          : undefined,
+      implementationBlockNumber:
+        typeof parsed.implementationBlockNumber === "number"
+          ? parsed.implementationBlockNumber
+          : undefined,
+      proxyAddress:
+        typeof parsed.proxyAddress === "string"
+          ? getAddress(parsed.proxyAddress)
+          : undefined,
+      tokenAddress: getAddress(tokenAddress),
+      transactionHash,
+      blockNumber,
+      confirmations,
+      verified,
+      metadata: isRecord(parsed.metadata) ? parsed.metadata : {},
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function getStringField(
+  record: Record<string, unknown>,
+  field: string
+): string | undefined {
+  const value = record[field];
+  return typeof value === "string" ? value : undefined;
+}
+
+function getNumberField(
+  record: Record<string, unknown>,
+  field: string
+): number | undefined {
+  const value = record[field];
+  return typeof value === "number" ? value : undefined;
+}
+
+function getBooleanField(
+  record: Record<string, unknown>,
+  field: string
+): boolean | undefined {
+  const value = record[field];
+  return typeof value === "boolean" ? value : undefined;
+}
+
 function getSolcOutputContracts(
   value: unknown
 ): Record<string, unknown> | undefined {
@@ -683,7 +919,7 @@ async function maybeVerify(config: TokenConfig): Promise<boolean> {
   }
 
   console.warn(
-    "verify.enabled is true, but explorer verification is not implemented in this script; recording verified=false."
+    "verify.enabled is true, but deploy:token does not submit explorer verification; run pnpm run verify:token -- --config <path> after deployment. Recording verified=false."
   );
   return false;
 }

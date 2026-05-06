@@ -6,15 +6,11 @@
   "symbol": "ETT",
   "decimals": 18,
   "initialSupply": "1000000",
-  "initialRecipient": "0x000000000000000000000000000000000000dEaD",
-  "owner": "0x000000000000000000000000000000000000dEaD",
   "isTest": true,
   "isUpgradeable": false,
   "confirmations": 2,
   "verify": {
-    "enabled": false,
-    "explorer": "etherscan",
-    "apiKeyEnv": "ETHERSCAN_API_KEY"
+    "enabled": false
   },
   "metadata": {
     "project": "erc20-deploy",

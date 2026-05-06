@@ -28,8 +28,8 @@ type TokenConfig = {
   symbol: string;
   decimals: number;
   initialSupply: string;
-  initialRecipient: string;
-  owner: string;
+  initialRecipient?: string;
+  owner?: string;
   isTest: boolean;
   isUpgradeable: boolean;
   confirmations: number;
@@ -172,6 +172,60 @@ async function main(): Promise<void> {
       recipient: mintRecipient.address,
     });
 
+    const directDefaultAddresses = await deployAndLoadRecord({
+      config: buildConfig({
+        rpc,
+        tokenName: "Anvil Default Addresses Token",
+        symbol: "ADAT",
+        decimals: 18,
+        initialSupply: "42",
+        isTest: true,
+        isUpgradeable: false,
+      }),
+      envPath,
+      workDir,
+    });
+    recordsToDelete.push(directDefaultAddresses.recordPath);
+    await assertTokenDeployment({
+      provider,
+      record: directDefaultAddresses.record,
+      expectedConfig: directDefaultAddresses.config,
+      deployerAddress: deployer.address,
+    });
+
+    const reusedDefaultAddresses = await deployAndLoadRecord({
+      config: directDefaultAddresses.config,
+      envPath,
+      workDir,
+    });
+    assert.equal(reusedDefaultAddresses.recordPath, directDefaultAddresses.recordPath);
+    assert.equal(
+      reusedDefaultAddresses.record.tokenAddress,
+      directDefaultAddresses.record.tokenAddress,
+    );
+    assert.match(
+      reusedDefaultAddresses.stdout,
+      /Found existing matching deployment/,
+    );
+
+    const forcedDefaultAddresses = await deployAndLoadRecord({
+      config: directDefaultAddresses.config,
+      envPath,
+      workDir,
+      extraArgs: ["--force"],
+    });
+    recordsToDelete.push(forcedDefaultAddresses.recordPath);
+    assert.notEqual(
+      forcedDefaultAddresses.record.tokenAddress,
+      directDefaultAddresses.record.tokenAddress,
+    );
+    await assertTokenDeployment({
+      provider,
+      record: forcedDefaultAddresses.record,
+      expectedConfig: forcedDefaultAddresses.config,
+      deployerAddress: deployer.address,
+    });
+
     const upgradeableTest = await deployAndLoadRecord({
       config: buildConfig({
         rpc,
@@ -227,11 +281,12 @@ function buildConfig(
     | "symbol"
     | "decimals"
     | "initialSupply"
-    | "initialRecipient"
-    | "owner"
     | "isTest"
     | "isUpgradeable"
-  > & { chainId?: number },
+  > &
+    Partial<Pick<TokenConfig, "initialRecipient" | "owner">> & {
+      chainId?: number;
+    },
 ): TokenConfig {
   return {
     rpc: overrides.rpc,
@@ -241,8 +296,12 @@ function buildConfig(
     symbol: overrides.symbol,
     decimals: overrides.decimals,
     initialSupply: overrides.initialSupply,
-    initialRecipient: getAddress(overrides.initialRecipient),
-    owner: getAddress(overrides.owner),
+    initialRecipient:
+      overrides.initialRecipient === undefined
+        ? undefined
+        : getAddress(overrides.initialRecipient),
+    owner:
+      overrides.owner === undefined ? undefined : getAddress(overrides.owner),
     isTest: overrides.isTest,
     isUpgradeable: overrides.isUpgradeable,
     confirmations: 1,
@@ -260,10 +319,12 @@ async function deployAndLoadRecord({
   config,
   envPath,
   workDir,
+  extraArgs = [],
 }: {
   config: TokenConfig;
   envPath: string;
   workDir: string;
+  extraArgs?: Array<string>;
 }): Promise<{
   config: TokenConfig;
   record: DeploymentRecord;
@@ -279,6 +340,7 @@ async function deployAndLoadRecord({
     "--",
     "--config",
     configPath,
+    ...extraArgs,
   ], {
     DOTENV_CONFIG_PATH: envPath,
   });
@@ -352,6 +414,10 @@ async function assertTokenDeployment({
     expectedConfig.initialSupply,
     expectedConfig.decimals,
   );
+  const expectedInitialRecipient = getAddress(
+    expectedConfig.initialRecipient ?? deployerAddress,
+  );
+  const expectedOwner = getAddress(expectedConfig.owner ?? deployerAddress);
 
   assert.equal(record.chainId, expectedConfig.chainId);
   assert.equal(record.rpcHost, new URL(expectedConfig.rpc).host);
@@ -361,8 +427,8 @@ async function assertTokenDeployment({
   assert.equal(record.decimals, expectedConfig.decimals);
   assert.equal(record.initialSupply, expectedConfig.initialSupply);
   assert.equal(record.initialSupplyBaseUnits, expectedSupply.toString());
-  assert.equal(record.initialRecipient, getAddress(expectedConfig.initialRecipient));
-  assert.equal(record.owner, getAddress(expectedConfig.owner));
+  assert.equal(record.initialRecipient, expectedInitialRecipient);
+  assert.equal(record.owner, expectedOwner);
   assert.equal(record.isTest, expectedConfig.isTest);
   assert.equal(record.isUpgradeable, expectedConfig.isUpgradeable);
   assert.equal(record.confirmations, expectedConfig.confirmations);
@@ -375,8 +441,8 @@ async function assertTokenDeployment({
   assert.equal(await token.symbol(), expectedConfig.symbol);
   assert.equal(await token.decimals(), BigInt(expectedConfig.decimals));
   assert.equal(await token.totalSupply(), expectedSupply);
-  assert.equal(await token.balanceOf(expectedConfig.initialRecipient), expectedSupply);
-  assert.equal(await token.owner(), getAddress(expectedConfig.owner));
+  assert.equal(await token.balanceOf(expectedInitialRecipient), expectedSupply);
+  assert.equal(await token.owner(), expectedOwner);
   assert.equal(await token.isTest(), expectedConfig.isTest);
 
   const code = await provider.getCode(record.tokenAddress);

@@ -1,0 +1,11 @@
+{
+  "rpc": "https://data-seed-prebsc-1-s1.bnbchain.org:8545",
+  "chainId": 97,
+  "deployerPrivateKeyEnv": "DEPLOYER_PRIVATE_KEY",
+  "tokenName": "BSC Test Token",
+  "symbol": "BTT",
+  "decimals": 18,
+  "initialSupply": "1000000",
+  "isTest": true,
+  "isUpgradeable": false
+}

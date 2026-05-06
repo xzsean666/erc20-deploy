@@ -1,0 +1,11 @@
+{
+  "rpc": "https://polygon-amoy.drpc.org",
+  "chainId": 80002,
+  "deployerPrivateKeyEnv": "DEPLOYER_PRIVATE_KEY",
+  "tokenName": "Polygon Amoy Test Token",
+  "symbol": "PATT",
+  "decimals": 18,
+  "initialSupply": "1000000",
+  "isTest": true,
+  "isUpgradeable": false
+}

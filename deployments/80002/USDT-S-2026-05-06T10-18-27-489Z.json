@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-05-06T10:18:27.489Z",
+  "chainId": 80002,
+  "rpcHost": "polygon-amoy.drpc.org",
+  "deployer": "0x285bd8C75C7647b7da1C1154776633804d4ff5eC",
+  "tokenName": "USDT SEAN TEST",
+  "symbol": "USDT-S",
+  "decimals": 18,
+  "initialSupply": "1000000",
+  "initialSupplyBaseUnits": "1000000000000000000000000",
+  "initialRecipient": "0x285bd8C75C7647b7da1C1154776633804d4ff5eC",
+  "owner": "0x285bd8C75C7647b7da1C1154776633804d4ff5eC",
+  "isTest": true,
+  "isUpgradeable": false,
+  "tokenAddress": "0xebe1AF878AdC36994cebE5f8fd3BF772661E3D14",
+  "transactionHash": "0x2e39295c15317a659be4db730085e4d53973ed4f4d8fbe7ccce11d980ce06df6",
+  "blockNumber": 37891274,
+  "confirmations": 2,
+  "verified": true,
+  "metadata": {}
+}

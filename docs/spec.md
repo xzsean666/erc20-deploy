@@ -43,8 +43,6 @@ pnpm run deploy:token -- --config ./config/tokenconfig.json
 | `symbol` | string | ERC20 `symbol()` |
 | `decimals` | integer | ERC20 `decimals()`，建议 18，允许 0-18 |
 | `initialSupply` | string | 人类可读初始发行量，例如 `"1000000"` |
-| `initialRecipient` | address | 初始发行接收地址 |
-| `owner` | address | 生产币 owner；可升级币也作为升级授权 owner |
 | `isTest` | boolean | 测试币开关 |
 | `isUpgradeable` | boolean | 是否部署代理 |
 
@@ -53,6 +51,8 @@ pnpm run deploy:token -- --config ./config/tokenconfig.json
 | 字段 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `confirmations` | integer | `2` | 部署后等待确认数 |
+| `initialRecipient` | address | deployer | 初始发行接收地址；省略时使用部署钱包 |
+| `owner` | address | deployer | 生产币 owner；可升级币也作为升级授权 owner；省略时使用部署钱包 |
 | `gas.maxFeePerGasGwei` | string | unset | EIP-1559 最大 gas fee |
 | `gas.maxPriorityFeePerGasGwei` | string | unset | EIP-1559 priority fee |
 | `verify.enabled` | boolean | `false` | 是否执行区块浏览器验证 |
@@ -144,7 +144,7 @@ deployments/<chainId>/<symbol>-<timestamp>.json
 - `config/tokenconfig.json` 默认应加入 `.gitignore`，只提交 `config/tokenconfig.example.json`。
 - 部署前必须校验 `chainId`，防止 RPC 配错链。
 - `isTest: true` 的 public mint 是危险行为，不能用于主网资产。
-- `owner` 和 `initialRecipient` 必须显式配置，不能默认使用 deployer，避免误发资产。
+- `owner` 和 `initialRecipient` 省略时默认使用 deployer；生产部署如需多签或独立接收地址，应显式配置。
 - 对可升级合约，升级前必须运行存储布局检查或至少生成 storage layout 并人工审查。
 
 ## 验收标准

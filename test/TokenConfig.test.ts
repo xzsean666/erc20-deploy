@@ -56,6 +56,18 @@ describe("token config loader", function () {
     });
   });
 
+  it("allows initialRecipient and owner to be omitted", async function () {
+    await withConfigFile(
+      validConfig({ initialRecipient: undefined, owner: undefined }),
+      async (configPath) => {
+        const config = await loadTokenConfig(configPath);
+
+        expect(config.initialRecipient).to.equal(undefined);
+        expect(config.owner).to.equal(undefined);
+      },
+    );
+  });
+
   it("rejects an initialSupply with more fractional digits than decimals", async function () {
     await withConfigFile(
       validConfig({ decimals: 2, initialSupply: "1.001" }),

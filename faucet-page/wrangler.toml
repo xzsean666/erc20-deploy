@@ -1,0 +1,3 @@
+name = "usdt-s-faucet"
+compatibility_date = "2025-08-16"
+pages_build_output_dir = "."
