@@ -175,6 +175,10 @@ function parseCliArgs(argv: Array<string>): CliOptions {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
 
+    if (arg === "--") {
+      continue;
+    }
+
     if (arg === "--help" || arg === "-h") {
       printUsage();
       process.exit(0);
@@ -210,7 +214,7 @@ function parseCliArgs(argv: Array<string>): CliOptions {
 }
 
 function printUsage(): void {
-  console.log("Usage: npm run deploy:token -- --config ./tokenconfig.json");
+  console.log("Usage: pnpm run deploy:token -- --config ./config/tokenconfig.json");
 }
 
 async function assertChainId(
@@ -408,7 +412,7 @@ async function readArtifact(contractName: string): Promise<HardhatArtifact> {
   const checked =
     candidates.length > 0 ? ` Checked ${candidates.join(", ")}.` : "";
   throw new Error(
-    `Missing Hardhat artifact for ${contractName}. Run npm run compile before deploying.${checked}`
+    `Missing Hardhat artifact for ${contractName}. Run pnpm run compile before deploying.${checked}`
   );
 }
 

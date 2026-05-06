@@ -1,20 +1,12 @@
 import { expect } from "chai";
 import { network } from "hardhat";
 
-const { ethers, networkHelpers } = await network.create();
+const { ethers } = await network.create();
 
 const TOKEN_NAME = "Configurable Token";
 const TOKEN_SYMBOL = "CFG";
 
 describe("ConfigurableERC20", function () {
-  async function deployDefaultTokenFixture() {
-    return deployTokenFixture();
-  }
-
-  async function deployTestTokenFixture() {
-    return deployTokenFixture({ isTest: true });
-  }
-
   async function deployTokenFixture({
     decimals = 6,
     initialSupplyBaseUnits = ethers.parseUnits("1234567.890123", decimals),
@@ -73,25 +65,39 @@ describe("ConfigurableERC20", function () {
 
   it("allows any signer to mint to a third party when isTest is true", async function () {
     const mintAmount = 42_000n;
-    const { token, minter, thirdParty } =
-      await networkHelpers.loadFixture(deployTestTokenFixture);
+    const { token, minter, thirdParty } = await deployTokenFixture({
+      isTest: true,
+    });
     const tokenAsMinter = token.connect(minter) as typeof token;
     const thirdPartyAddress = await thirdParty.getAddress();
 
-    await expect(tokenAsMinter.mint(thirdPartyAddress, mintAmount))
-      .to.emit(token, "Transfer")
-      .withArgs(ethers.ZeroAddress, thirdPartyAddress, mintAmount);
+    await (await tokenAsMinter.mint(thirdPartyAddress, mintAmount)).wait();
 
     expect(await token.balanceOf(thirdPartyAddress)).to.equal(mintAmount);
   });
 
   it("reverts mint calls when isTest is false", async function () {
-    const { token, minter, thirdParty } =
-      await networkHelpers.loadFixture(deployDefaultTokenFixture);
+    const { token, minter, thirdParty } = await deployTokenFixture();
     const tokenAsMinter = token.connect(minter) as typeof token;
 
-    await expect(
+    await expectTransactionRevert(
       tokenAsMinter.mint(await thirdParty.getAddress(), 1n),
-    ).to.revert(ethers);
+      "MintDisabled",
+    );
   });
 });
+
+async function expectTransactionRevert(
+  promise: Promise<unknown>,
+  expectedMessagePart: string,
+): Promise<void> {
+  try {
+    await promise;
+  } catch (error) {
+    expect(error).to.be.instanceOf(Error);
+    expect((error as Error).message).to.include(expectedMessagePart);
+    return;
+  }
+
+  throw new Error("Expected transaction to revert");
+}

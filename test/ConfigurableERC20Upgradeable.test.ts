@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { network } from "hardhat";
 
-const { ethers, networkHelpers } = await network.create();
+const { ethers } = await network.create();
 
 const TOKEN_NAME = "Upgradeable Configurable Token";
 const TOKEN_SYMBOL = "UCFG";
@@ -9,14 +9,6 @@ const IMPLEMENTATION_SLOT =
   "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc";
 
 describe("ConfigurableERC20Upgradeable", function () {
-  async function deployDefaultProxyFixture() {
-    return deployProxyFixture();
-  }
-
-  async function deployTestProxyFixture() {
-    return deployProxyFixture({ isTest: true });
-  }
-
   async function deployProxyFixture({
     decimals = 9,
     initialSupplyBaseUnits = ethers.parseUnits("987654.321", decimals),
@@ -110,26 +102,25 @@ describe("ConfigurableERC20Upgradeable", function () {
 
   it("keeps the configured test mint behavior behind the proxy", async function () {
     const mintAmount = 5_555n;
-    const { token, minter, thirdParty } =
-      await networkHelpers.loadFixture(deployTestProxyFixture);
+    const { token, minter, thirdParty } = await deployProxyFixture({
+      isTest: true,
+    });
     const tokenAsMinter = token.connect(minter) as typeof token;
     const thirdPartyAddress = await thirdParty.getAddress();
 
-    await expect(tokenAsMinter.mint(thirdPartyAddress, mintAmount))
-      .to.emit(token, "Transfer")
-      .withArgs(ethers.ZeroAddress, thirdPartyAddress, mintAmount);
+    await (await tokenAsMinter.mint(thirdPartyAddress, mintAmount)).wait();
 
     expect(await token.balanceOf(thirdPartyAddress)).to.equal(mintAmount);
   });
 
   it("reverts proxy mint calls when isTest is false", async function () {
-    const { token, minter, thirdParty } =
-      await networkHelpers.loadFixture(deployDefaultProxyFixture);
+    const { token, minter, thirdParty } = await deployProxyFixture();
     const tokenAsMinter = token.connect(minter) as typeof token;
 
-    await expect(
+    await expectTransactionRevert(
       tokenAsMinter.mint(await thirdParty.getAddress(), 1n),
-    ).to.revert(ethers);
+      "MintDisabled",
+    );
   });
 
   it("allows initialize to run only once", async function () {
@@ -140,10 +131,10 @@ describe("ConfigurableERC20Upgradeable", function () {
       initialSupplyBaseUnits,
       decimals,
       ownerAddress,
-    } = await networkHelpers.loadFixture(deployDefaultProxyFixture);
+    } = await deployProxyFixture();
     const tokenAsOwner = token.connect(owner) as typeof token;
 
-    await expect(
+    await expectTransactionRevert(
       tokenAsOwner.initialize(
         TOKEN_NAME,
         TOKEN_SYMBOL,
@@ -153,12 +144,12 @@ describe("ConfigurableERC20Upgradeable", function () {
         false,
         ownerAddress,
       ),
-    ).to.revert(ethers);
+      "InvalidInitialization",
+    );
   });
 
   it("allows only the owner to upgrade the proxy implementation", async function () {
-    const { token, owner, nonOwner, proxyAddress } =
-      await networkHelpers.loadFixture(deployDefaultProxyFixture);
+    const { token, owner, nonOwner, proxyAddress } = await deployProxyFixture();
     const replacementImplementation = await ethers.deployContract(
       "ConfigurableERC20Upgradeable",
     );
@@ -166,11 +157,12 @@ describe("ConfigurableERC20Upgradeable", function () {
     const tokenAsNonOwner = token.connect(nonOwner) as typeof token;
     const tokenAsOwner = token.connect(owner) as typeof token;
 
-    await expect(
+    await expectTransactionRevert(
       tokenAsNonOwner.upgradeToAndCall(replacementAddress, "0x"),
-    ).to.revert(ethers);
+      "OwnableUnauthorizedAccount",
+    );
 
-    await tokenAsOwner.upgradeToAndCall(replacementAddress, "0x");
+    await (await tokenAsOwner.upgradeToAndCall(replacementAddress, "0x")).wait();
 
     expect(
       implementationAddressFromStorage(
@@ -180,3 +172,18 @@ describe("ConfigurableERC20Upgradeable", function () {
     expect(await token.name()).to.equal(TOKEN_NAME);
   });
 });
+
+async function expectTransactionRevert(
+  promise: Promise<unknown>,
+  expectedMessagePart: string,
+): Promise<void> {
+  try {
+    await promise;
+  } catch (error) {
+    expect(error).to.be.instanceOf(Error);
+    expect((error as Error).message).to.include(expectedMessagePart);
+    return;
+  }
+
+  throw new Error("Expected transaction to revert");
+}

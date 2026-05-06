@@ -4,23 +4,23 @@
 
 ## 目标
 
-本项目用于按 JSON 配置部署 ERC20 Token。一个 `tokenconfig.json` 描述链、部署账户来源、Token 元数据、精度、测试币开关、可升级开关、初始供应量和验证设置；部署入口统一暴露为:
+本项目用于按 JSON 配置部署 ERC20 Token。一个 `config/tokenconfig.json` 描述链、部署账户来源、Token 元数据、精度、测试币开关、可升级开关、初始供应量和验证设置；部署入口统一暴露为:
 
 ```bash
-npm run deploy:token -- --config ./tokenconfig.json
+pnpm run deploy:token -- --config ./config/tokenconfig.json
 ```
 
-注意: Hardhat 自身也有全局 `--config` 参数，用来指定 `hardhat.config.ts`。本项目的 `--config tokenconfig.json` 必须由项目自己的部署脚本解析，不能写成 `npx hardhat --config tokenconfig.json ...`。
+注意: Hardhat 自身也有全局 `--config` 参数，用来指定 `hardhat.config.ts`。本项目的 `--config config/tokenconfig.json` 必须由项目自己的部署脚本解析，不能写成 `pnpm exec hardhat --config config/tokenconfig.json ...`。
 
 ## 当前技术基线
 
-以下版本在 2026-05-06 通过官方文档与 `npm view` 核对:
+以下版本在 2026-05-06 通过官方文档与 package registry 核对:
 
 | 组件 | 版本/要求 | 用途 |
 | --- | --- | --- |
 | Node.js | `>=22.10.0`，后续受维护的偶数主版本 | Hardhat 3 官方支持范围 |
 | Hardhat | `3.4.4` | 编译、测试、产物管理 |
-| Solidity compiler | `0.8.35` | 当前 `solc` npm 最新版本，兼容 OpenZeppelin 5.x 的 `^0.8.20` |
+| Solidity compiler | `0.8.35` | 当前 `solc` registry 最新版本，兼容 OpenZeppelin 5.x 的 `^0.8.20` |
 | `@openzeppelin/contracts` | `5.6.1` | 非代理 ERC20、ERC1967Proxy 等 |
 | `@openzeppelin/contracts-upgradeable` | `5.6.1` | UUPS 可升级 ERC20 实现 |
 | `ethers` | `6.16.0` | 部署脚本签名、RPC、单位换算 |
@@ -30,7 +30,7 @@ npm run deploy:token -- --config ./tokenconfig.json
 
 ## 配置文件
 
-配置文件必须是 JSON。示例见仓库根目录 `tokenconfig.example.json`，schema 见 `docs/tokenconfig.schema.json`。
+配置文件必须是 JSON。示例见 `config/tokenconfig.example.json`，schema 见 `docs/tokenconfig.schema.json`。真实部署配置使用 `config/tokenconfig.json`，不要提交。
 
 必填字段:
 
@@ -140,8 +140,8 @@ deployments/<chainId>/<symbol>-<timestamp>.json
 
 ## 安全约束
 
-- 私钥只能来自环境变量或 Hardhat keystore，不能进入 `tokenconfig.json`、部署记录或 git。
-- `tokenconfig.json` 默认应加入 `.gitignore`，只提交 `tokenconfig.example.json`。
+- 私钥只能来自 `.env` 中的环境变量、CI secret 或 Hardhat keystore，不能进入 `config/tokenconfig.json`、部署记录或 git。
+- `config/tokenconfig.json` 默认应加入 `.gitignore`，只提交 `config/tokenconfig.example.json`。
 - 部署前必须校验 `chainId`，防止 RPC 配错链。
 - `isTest: true` 的 public mint 是危险行为，不能用于主网资产。
 - `owner` 和 `initialRecipient` 必须显式配置，不能默认使用 deployer，避免误发资产。

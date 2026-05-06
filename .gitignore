@@ -10,9 +10,11 @@ typechain-types/
 !.env.example
 
 tokenconfig.json
+config/tokenconfig.json
 deployments/31337/
 deployments/**/*.local.json
 
+package-lock.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
