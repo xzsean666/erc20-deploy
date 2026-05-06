@@ -104,7 +104,7 @@ npm run deploy:token -- --config ./tokenconfig.json
 - 实现合约继承 `ERC20Upgradeable`、`OwnableUpgradeable`、`UUPSUpgradeable`。
 - 实现合约禁止 constructor 初始化逻辑，只保留 `_disableInitializers()`。
 - 初始化函数设置 name、symbol、decimals、isTest、owner，并 mint 初始供应量。
-- 代理使用 `ERC1967Proxy`，构造参数为 implementation 地址和 initializer calldata。
+- 代理使用继承 OpenZeppelin `ERC1967Proxy` 的 `ConfigurableERC1967Proxy`，构造参数为 implementation 地址和 initializer calldata。
 - 升级授权由 `_authorizeUpgrade(address newImplementation)` + `onlyOwner` 控制。
 - 遵守 OpenZeppelin 可升级合约存储布局规则。新增状态变量只能追加，不能改类型、顺序或删除已有变量。
 - 由于 OpenZeppelin 5.x upgradeable 系列使用 ERC-7201 namespaced storage，项目自定义存储也应采用同一模式或保守追加 storage gap，避免升级风险。

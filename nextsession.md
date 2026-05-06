@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-仓库初始为空，本次已先完成文档阶段:
+仓库初始为空，目前已完成 Hardhat 3 项目实现:
 
 - `README.md`
 - `docs/spec.md`
@@ -12,6 +12,14 @@
 - `docs/tokenconfig.schema.json`
 - `tokenconfig.example.json`
 - `nextsession.md`
+- `package.json` / `package-lock.json`
+- `hardhat.config.ts` / `tsconfig.json`
+- `contracts/ConfigurableERC20.sol`
+- `contracts/ConfigurableERC20Upgradeable.sol`
+- `contracts/ConfigurableERC1967Proxy.sol`
+- `src/config/tokenConfig.ts`
+- `scripts/deploy-token.ts`
+- `test/*.test.ts`
 
 用户要求:
 
@@ -30,20 +38,26 @@
 - 对外部署命令建议为 `npm run deploy:token -- --config ./tokenconfig.json`。
 - 不使用 `npx hardhat --config tokenconfig.json`，因为 Hardhat 的 `--config` 是 Hardhat 配置文件路径。
 - `@openzeppelin/hardhat-upgrades@3.9.1` 当前 peerDependencies 仍是 Hardhat 2 系列，不作为主路径依赖。
-- 可升级部署走 `@openzeppelin/contracts-upgradeable@5.6.1` + UUPS + `ERC1967Proxy` 手写部署。
+- 可升级部署走 `@openzeppelin/contracts-upgradeable@5.6.1` + UUPS + `ConfigurableERC1967Proxy` 手写部署。
 - 生产币默认只有初始 mint，不开放 public mint。测试币开放 `mint(address to, uint256 amount)` 给任何调用者。
+- 部署脚本使用 ethers `NonceManager`，避免 implementation 和 proxy 连续部署时复用 nonce。
+- `verify.enabled` 目前只解析和记录，尚未接入 explorer 提交验证。
+
+## 已验证
+
+- `npx hardhat compile --force`
+- `npm run typecheck`
+- `npm test`
+- `npm run deploy:token -- --help`
+- 本地 Hardhat node 上实测普通部署成功。
+- 本地 Hardhat node 上实测可升级部署成功，写出 proxy 和 implementation 地址。
 
 ## 下一步建议
 
-1. 初始化 `package.json`、`hardhat.config.ts`、`tsconfig.json`，固定文档中的版本。
-2. 新增 `.gitignore`，至少忽略 `node_modules/`、`artifacts/`、`cache/`、`.env`、真实 `tokenconfig.json`。
-3. 实现 `contracts/ConfigurableERC20.sol`。
-4. 实现 `contracts/ConfigurableERC20Upgradeable.sol`，使用 initializer、UUPS、owner upgrade auth。
-5. 实现 `src/config/tokenConfig.ts`，用 zod 或 JSON Schema 校验 `tokenconfig.json`。
-6. 实现 `scripts/deploy-token.ts`，解析 `--config`、校验 chainId、部署合约、写部署记录。
-7. 增加测试: decimals、initialSupply、测试币 public mint、生产币 mint revert、可升级初始化和 owner-only upgrade。
-8. 跑 `npm run compile` 和 `npm run test`。
-9. 完成后 `git status` 检查，再 `git commit`，不要 push。
+1. 接入真实 explorer 验证逻辑，支持普通合约、implementation 和 proxy 验证。
+2. 增加部署脚本的自动化集成测试，避免每次手工启动 Hardhat node。
+3. 根据业务需要决定是否增加 cap、burn、pause、owner mint 等生产币扩展。
+4. 每完成一个阶段继续 `git commit`，不要 push。
 
 ## 调研来源
 

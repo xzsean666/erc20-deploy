@@ -2,6 +2,7 @@ node_modules/
 artifacts/
 cache/
 coverage/
+types/
 typechain-types/
 
 .env
@@ -9,6 +10,7 @@ typechain-types/
 !.env.example
 
 tokenconfig.json
+deployments/31337/
 deployments/**/*.local.json
 
 npm-debug.log*
