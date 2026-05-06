@@ -1,0 +1,23 @@
+{
+  "rpc": "https://sepolia.example-rpc.invalid",
+  "chainId": 11155111,
+  "deployerPrivateKeyEnv": "DEPLOYER_PRIVATE_KEY",
+  "tokenName": "Example Test Token",
+  "symbol": "ETT",
+  "decimals": 18,
+  "initialSupply": "1000000",
+  "initialRecipient": "0x000000000000000000000000000000000000dEaD",
+  "owner": "0x000000000000000000000000000000000000dEaD",
+  "isTest": true,
+  "isUpgradeable": false,
+  "confirmations": 2,
+  "verify": {
+    "enabled": false,
+    "explorer": "etherscan",
+    "apiKeyEnv": "ETHERSCAN_API_KEY"
+  },
+  "metadata": {
+    "project": "erc20-deploy",
+    "notes": "Example only. Do not deploy this config without replacing addresses and RPC."
+  }
+}

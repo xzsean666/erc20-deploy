@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/erc20-deploy/tokenconfig.schema.json",
+  "title": "ERC20 Deploy Token Config",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rpc",
+    "chainId",
+    "deployerPrivateKeyEnv",
+    "tokenName",
+    "symbol",
+    "decimals",
+    "initialSupply",
+    "initialRecipient",
+    "owner",
+    "isTest",
+    "isUpgradeable"
+  ],
+  "properties": {
+    "rpc": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https?://"
+    },
+    "chainId": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "deployerPrivateKeyEnv": {
+      "type": "string",
+      "pattern": "^[A-Z_][A-Z0-9_]*$"
+    },
+    "tokenName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "symbol": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20,
+      "pattern": "^[A-Za-z0-9_.$-]+$"
+    },
+    "decimals": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18
+    },
+    "initialSupply": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]+)?$"
+    },
+    "initialRecipient": {
+      "$ref": "#/$defs/address"
+    },
+    "owner": {
+      "$ref": "#/$defs/address"
+    },
+    "isTest": {
+      "type": "boolean"
+    },
+    "isUpgradeable": {
+      "type": "boolean"
+    },
+    "confirmations": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 2
+    },
+    "gas": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "maxFeePerGasGwei": {
+          "$ref": "#/$defs/decimalString"
+        },
+        "maxPriorityFeePerGasGwei": {
+          "$ref": "#/$defs/decimalString"
+        }
+      }
+    },
+    "verify": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "explorer": {
+          "type": "string",
+          "enum": ["etherscan", "blockscout"]
+        },
+        "apiKeyEnv": {
+          "type": "string",
+          "pattern": "^[A-Z_][A-Z0-9_]*$"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "project": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 500
+        }
+      }
+    }
+  },
+  "$defs": {
+    "address": {
+      "type": "string",
+      "pattern": "^0x[a-fA-F0-9]{40}$"
+    },
+    "decimalString": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]+)?$"
+    }
+  }
+}

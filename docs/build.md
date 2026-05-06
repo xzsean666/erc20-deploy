@@ -1,0 +1,215 @@
+# 构建与部署文档
+
+更新时间: 2026-05-06
+
+## 环境要求
+
+- Node.js `>=22.10.0`，建议使用当前受维护的偶数 LTS 版本。
+- npm `>=10`。
+- 一个有 gas 的部署钱包。
+- 目标链 HTTP(S) RPC。
+
+推荐用 `nvm` 或同类工具固定 Node 版本:
+
+```bash
+nvm install 24
+nvm use 24
+```
+
+## 初始化项目
+
+下一步实现时建议按以下方式创建 Hardhat 3 + TypeScript + ESM 项目:
+
+```bash
+npm init -y
+npm pkg set type=module
+npm install --save-dev hardhat@3.4.4 @nomicfoundation/hardhat-toolbox-mocha-ethers@3.0.4 typescript@6.0.3 tsx zod@4.4.3 dotenv
+npm install ethers@6.16.0 @openzeppelin/contracts@5.6.1 @openzeppelin/contracts-upgradeable@5.6.1
+```
+
+如果后续 `npm view` 显示有更新版本，应先重新检查 Hardhat 3、OpenZeppelin 和插件 peerDependencies，再决定是否升级。不要把当前仍声明 Hardhat 2 peerDependency 的 `@openzeppelin/hardhat-upgrades` 加入主路径。
+
+## 建议目录结构
+
+```text
+contracts/
+  ConfigurableERC20.sol
+  ConfigurableERC20Upgradeable.sol
+scripts/
+  deploy-token.ts
+src/
+  config/
+    tokenConfig.ts
+test/
+  ConfigurableERC20.test.ts
+  ConfigurableERC20Upgradeable.test.ts
+hardhat.config.ts
+tokenconfig.example.json
+docs/
+  spec.md
+  build.md
+  tokenconfig.schema.json
+deployments/
+```
+
+## Hardhat 配置方向
+
+Hardhat 3 默认使用 ESM，`hardhat.config.ts` 应使用 `export default defineConfig(...)`。编译器建议先固定:
+
+```ts
+import { defineConfig } from "hardhat/config";
+import hardhatToolboxMochaEthersPlugin from "@nomicfoundation/hardhat-toolbox-mocha-ethers";
+
+export default defineConfig({
+  plugins: [hardhatToolboxMochaEthersPlugin],
+  solidity: {
+    version: "0.8.35",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200
+      },
+      viaIR: false
+    }
+  }
+});
+```
+
+动态 RPC 不建议写死在 `hardhat.config.ts`。部署脚本读取 `tokenconfig.json` 后创建 `ethers.JsonRpcProvider` 和 `ethers.Wallet`，这样一个项目可以部署多个链和多个 Token。
+
+## 配置文件准备
+
+从示例复制一个本地配置:
+
+```bash
+cp tokenconfig.example.json tokenconfig.json
+```
+
+设置部署私钥环境变量:
+
+```bash
+export DEPLOYER_PRIVATE_KEY=0x...
+```
+
+生产环境可以改用 Hardhat keystore 或 CI secret。配置 JSON 中只放 `deployerPrivateKeyEnv`，不放私钥值。
+
+## 构建命令
+
+```bash
+npm run compile
+npm run test
+npm run deploy:token -- --config ./tokenconfig.json
+```
+
+建议 `package.json` scripts:
+
+```json
+{
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:token": "tsx scripts/deploy-token.ts"
+  }
+}
+```
+
+`deploy:token` 脚本的职责:
+
+1. 解析 `--config <path>`。
+2. 用 JSON Schema 或 zod 校验配置。
+3. 读取 `process.env[deployerPrivateKeyEnv]`。
+4. 连接 RPC 并校验 `chainId`。
+5. 执行 `hardhat compile` 或确认 artifacts 已存在。
+6. 根据 `isUpgradeable` 选择部署普通合约或 UUPS proxy。
+7. 等待 `confirmations`。
+8. 写入 `deployments/<chainId>/...json`。
+9. 如果 `verify.enabled` 为 true，执行验证并更新部署记录。
+
+## 部署流程
+
+普通 Token:
+
+```bash
+npm run compile
+npm run test
+npm run deploy:token -- --config ./tokenconfig.json
+```
+
+可升级 Token:
+
+```json
+{
+  "isUpgradeable": true
+}
+```
+
+部署脚本应完成:
+
+1. 部署 `ConfigurableERC20Upgradeable` implementation。
+2. ABI encode `initialize(...)`。
+3. 部署 `ERC1967Proxy(implementation, initializeCalldata)`。
+4. 将 proxy 地址作为 `tokenAddress` 输出。
+
+测试币:
+
+```json
+{
+  "isTest": true
+}
+```
+
+测试币部署后任何地址都可以调用:
+
+```solidity
+mint(address to, uint256 amount)
+```
+
+这里的 `amount` 是最小单位，不是人类可读数量。前端或脚本要用 `parseUnits(value, decimals)`。
+
+## 合约验证
+
+Hardhat 3 官方验证插件在 `@nomicfoundation/hardhat-verify@3.x`。实际实现时可以先支持 Etherscan 风格 explorer，再扩展 Blockscout。
+
+配置示例:
+
+```json
+{
+  "verify": {
+    "enabled": true,
+    "explorer": "etherscan",
+    "apiKeyEnv": "ETHERSCAN_API_KEY"
+  }
+}
+```
+
+验证要求:
+
+- 普通合约验证 constructor args。
+- UUPS implementation 验证 implementation 合约。
+- Proxy 验证按目标 explorer 能力处理；至少部署记录要写清 implementation 和 proxy。
+
+## 测试计划
+
+优先实现以下测试:
+
+- `decimals()` 返回配置值。
+- `initialSupply` 按 decimals 正确换算并 mint 给 `initialRecipient`。
+- `isTest: true` 时，非 owner 可向第三方地址 mint。
+- `isTest: false` 时，mint 调用 revert。
+- 可升级部署初始化只允许执行一次。
+- 可升级部署只有 owner 可以升级。
+- 配置 parser 拒绝无效地址、非法 decimals、负数供应量、缺失私钥环境变量和 chainId mismatch。
+
+## Git 约定
+
+- 每次完成一个明确阶段都要 `git commit`。
+- 不 push，除非用户明确要求。
+- 不要提交 `.env`、真实 `tokenconfig.json`、私钥、RPC secret 或部署钱包信息。
+
+## 当前参考资料
+
+- Hardhat 3 文档: https://hardhat.org/docs
+- Hardhat 3 部署文档: https://hardhat.org/docs/guides/deployment
+- Hardhat 3 配置变量与 keystore: https://hardhat.org/docs/guides/configuration-variables
+- OpenZeppelin ERC20 文档: https://docs.openzeppelin.com/contracts/5.x/erc20
+- OpenZeppelin 可升级合约文档: https://docs.openzeppelin.com/upgrades-plugins/writing-upgradeable
