@@ -8,6 +8,7 @@
     "compile": "hardhat compile",
     "typecheck": "tsc --noEmit",
     "test": "hardhat test",
+    "test:e2e:anvil": "pnpm run compile && tsx e2e/anvil.e2e.ts",
     "deploy:token": "tsx scripts/deploy-token.ts"
   },
   "dependencies": {

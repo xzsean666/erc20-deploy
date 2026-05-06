@@ -16,6 +16,7 @@
 pnpm install
 pnpm run compile
 pnpm run test
+pnpm run test:e2e:anvil
 pnpm run deploy:token -- --config ./config/tokenconfig.json
 ```
 

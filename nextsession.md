@@ -21,6 +21,7 @@
 - `src/config/tokenConfig.ts`
 - `scripts/deploy-token.ts`
 - `test/*.test.ts`
+- `e2e/anvil.e2e.ts`
 
 用户要求:
 
@@ -50,6 +51,7 @@
 - `pnpm exec hardhat compile --force`
 - `pnpm run typecheck`
 - `pnpm test`
+- `pnpm run test:e2e:anvil`
 - `pnpm run deploy:token -- --help`
 - 本地 Hardhat node 上实测普通部署成功。
 - 本地 Hardhat node 上实测可升级部署成功，写出 proxy 和 implementation 地址。
@@ -57,7 +59,7 @@
 ## 下一步建议
 
 1. 接入真实 explorer 验证逻辑，支持普通合约、implementation 和 proxy 验证。
-2. 增加部署脚本的自动化集成测试，避免每次手工启动 Hardhat node。
+2. 把 `pnpm run test:e2e:anvil` 接入 CI，并继续扩展失败恢复、gas 参数和 verify 相关 e2e。
 3. 根据业务需要决定是否增加 cap、burn、pause、owner mint 等生产币扩展。
 4. 每完成一个阶段继续 `git commit`，不要 push。
 

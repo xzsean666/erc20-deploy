@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "types": ["node", "mocha"]
   },
-  "include": ["hardhat.config.ts", "scripts/**/*.ts", "src/**/*.ts", "test/**/*.ts"]
+  "include": ["hardhat.config.ts", "scripts/**/*.ts", "src/**/*.ts", "test/**/*.ts", "e2e/**/*.ts"]
 }
